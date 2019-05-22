@@ -12,6 +12,25 @@ from nnsum.metrics import Loss, PerlRouge
 
 from colorama import Fore, Style
 import ujson as json
+import numpy as np
+
+
+def topword(length, label, budget=100):
+    for i in range(label.shape[0]):
+        rolling_sum = 0
+        args = np.argsort(-label[i])
+        are_we_full = False
+        for j in args:
+            if are_we_full:
+                label[i][j] = 0
+            else:
+                rolling_sum += length[i][j]
+                if rolling_sum >= budget:
+                    are_we_full = True
+                    label[i][j] = 0
+                else:
+                    label[i][j] = 1
+    return(label)
 
 
 def labels_mle_trainer(model, optimizer, train_dataloader,
@@ -178,7 +197,7 @@ def create_trainer(model, optimizer, pos_weight=None, grad_clip=5, gpu=-1):
             mask.data.masked_fill_(batch.targets.data.eq(1), pos_weight)
 
         bce = F.binary_cross_entropy_with_logits(
-            logits, batch.targets.float(),
+            logits, torch.sigmoid(batch.targets.float()),
             weight=mask, 
             reduction='sum')
 
@@ -215,7 +234,7 @@ def create_evaluator(model, dataloader, summary_length=100, pos_weight=None,
                 mask.data.masked_fill_(batch.targets.data.eq(1), pos_weight)
 
             bce = F.binary_cross_entropy_with_logits(
-                logits, batch.targets.float(),
+                logits, torch.sigmoid(batch.targets.float()),
                 weight=mask, 
                 reduction='sum')
 
